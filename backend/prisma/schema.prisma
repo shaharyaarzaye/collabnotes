@@ -1,0 +1,87 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum Permission {
+  EDITOR
+  VIEWER
+}
+
+enum Action {
+  CREATE
+  UPDATE
+  DELETE
+  SHARE
+}
+
+model User {
+  id            String         @id @default(uuid())
+  name          String
+  email         String         @unique
+  password_hash String
+  role          Role           @default(USER)
+  created_at    DateTime       @default(now())
+
+  notes         Note[]         @relation("NoteOwner")
+  collaborators Collaborator[]
+  activityLogs  ActivityLog[]
+
+  @@index([email])
+}
+
+model Note {
+  id                 String         @id @default(uuid())
+  title              String
+  content            String         @default("")
+  owner_id           String
+  created_at         DateTime       @default(now())
+  updated_at         DateTime       @updatedAt
+  public_share_token String?        @unique
+
+  owner              User           @relation("NoteOwner", fields: [owner_id], references: [id], onDelete: Cascade)
+  collaborators      Collaborator[]
+  activityLogs       ActivityLog[]
+
+  @@index([owner_id])
+  @@index([public_share_token])
+  @@index([title])
+}
+
+model Collaborator {
+  id         String     @id @default(uuid())
+  note_id    String
+  user_id    String
+  permission Permission
+
+  note       Note       @relation(fields: [note_id], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([note_id, user_id])
+  @@index([note_id])
+  @@index([user_id])
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  user_id   String
+  note_id   String
+  action    Action
+  timestamp DateTime @default(now())
+
+  user      User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  note      Note     @relation(fields: [note_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([note_id])
+  @@index([timestamp])
+}
